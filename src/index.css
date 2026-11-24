@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/*
+ * Identidad visual APEXOS (de `lib/config/app_theme.dart`): tema oscuro,
+ * azul petróleo profundo con acento teal. La app Flutter es solo oscura, y la
+ * web conserva esa identidad a propósito (contraste alto al sol en campo).
+ */
+@theme {
+  --color-bg: #071320;
+  --color-bg-deep: #040d17;
+  --color-surface: #0f2233;
+  --color-surface-alt: #0b1b29;
+  --color-surface-high: #16304a;
+  --color-line: #1b3446;
+  --color-teal: #2dd4bf;
+  --color-teal-solid: #0d9488;
+  --color-ok: #16a34a;
+  --color-warn: #f59e0b;
+  --color-bad: #ef4444;
+  --color-info: #3b82f6;
+  --color-violet: #8b5cf6;
+  --color-ink: #e6edf3;
+  --color-muted: #8ca3b0;
+  --color-faint: #718a98;
+  --color-on-primary: #03211e;
+  --font-sans: Roboto, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 18px;
+}
+
+:root {
+  color-scheme: dark;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h: 64px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-deep);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+/* Inputs de 16px: iOS no hace zoom al enfocar. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* En una capa: así las utilidades de Tailwind (pl-10, py-2.5…) pueden ajustarlas. */
+@layer components {
+.page-bg {
+  background: linear-gradient(180deg, #0a1b2b 0%, #040d17 100%);
+}
+
+.panel {
+  background: linear-gradient(135deg, #12283c 0%, #0b1b29 100%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.grad-brand {
+  background: linear-gradient(90deg, #10b981 0%, #14b8a6 100%);
+}
+.grad-teal {
+  background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
+}
+.grad-blue {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+}
+.grad-violet {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+}
+.grad-amber {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #e6edf3 0%, #2dd4bf 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.field {
+  width: 100%;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  color: var(--color-ink);
+  outline: none;
+}
+.field:focus {
+  border-color: var(--color-teal);
+  box-shadow: 0 0 0 1px var(--color-teal);
+}
+.field::placeholder {
+  color: var(--color-faint);
+}
+
+}
+
+.safe-top {
+  padding-top: var(--safe-top);
+}
+.pb-nav {
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+}

@@ -1,0 +1,36 @@
+# Netlify — copiar a la raíz del proyecto como netlify.toml
+# Build de PRODUCCIÓN. Para QA: command = "npm run build:qa" y el destino de /api a QA.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Proxy inverso: el navegador llama a /api/* en el MISMO dominio y Netlify lo
+# reenvía a Railway. Así no hace falta tocar CORS en la API.
+[[redirects]]
+  from = "/api/*"
+  to = "https://apexos-api-prod-production.up.railway.app/api/:splat"
+  status = 200
+  force = true
+
+# Rutas de la SPA (React Router) → index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(self), geolocation=(self), microphone=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+# El Service Worker nunca debe quedar cacheado por el CDN (si no, las
+# actualizaciones tardan en llegar a los teléfonos).
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
