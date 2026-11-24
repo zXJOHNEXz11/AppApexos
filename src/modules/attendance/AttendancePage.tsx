@@ -19,6 +19,7 @@ import { storePhoto, type PreparedPhoto } from '../../services/media';
 import { OutboxRequests } from '../../sync/outboxRequests';
 import { useSync } from '../../sync/SyncProvider';
 import { useUser } from '../auth/AuthProvider';
+import { IDENTITY_NOT_ENABLED, isRouteMissing } from '../../services/apiClient';
 import {
   EXTENSION_REASONS, fetchActivityTypes, fetchRoutes, fetchTodayPunches, fetchWorkSession, isAvailable, LATE_REASONS,
   MILEAGE_RE, minuteOfDay, needsSelfie, PUNCHES, type PunchType, type WorkActivity,
@@ -87,6 +88,8 @@ export function AttendancePage() {
   const credsQ = useQuery({ queryKey: ['hr', 'webauthn', user.id], queryFn: fetchOwnCredentials });
   const fingerprintReady = !!localCred && (credsQ.data ? credsQ.data.value.includes(localCred.credentialId) : true);
   const faceReady = !!enrollment?.enrolled;
+  // La API de este ambiente aún no tiene huella/rostro: no se puede marcar desde la web móvil.
+  const identityMissing = isRouteMissing(faceQ.error) || isRouteMissing(credsQ.error);
 
   const today = todayIso();
   const marks = useMemo(() => {
@@ -148,6 +151,10 @@ export function AttendancePage() {
 
   const begin = (type: PunchType) => {
     if (busy || !isAvailable(type, marked) || marked.has(type)) return;
+    if (identityMissing) {
+      toast(IDENTITY_NOT_ENABLED, 'warn');
+      return;
+    }
     // Para marcar se exigen las DOS pruebas: rostro registrado y huella en este celular.
     if (!faceReady) {
       toast('Para marcar, primero registra tu rostro (panel "Mi rostro").', 'warn');
@@ -334,8 +341,14 @@ export function AttendancePage() {
             </p>
           </Panel>
 
-          <FacePanel enrollment={enrollment} loading={faceQ.isLoading} onEnroll={() => setEnrollOpen(true)} />
-          {fingerprintRequired && <FingerprintPanel ready={fingerprintReady} onRegistered={() => void credsQ.refetch()} />}
+          {identityMissing ? (
+            <InfoBox tone="warn" icon="alert">{IDENTITY_NOT_ENABLED}</InfoBox>
+          ) : (
+            <>
+              <FacePanel enrollment={enrollment} loading={faceQ.isLoading} onEnroll={() => setEnrollOpen(true)} />
+              {fingerprintRequired && <FingerprintPanel ready={fingerprintReady} onRegistered={() => void credsQ.refetch()} />}
+            </>
+          )}
 
           <Panel>
             <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Horario asignado</p>
@@ -659,7 +672,7 @@ function FingerprintPanel({ ready, onRegistered }: { ready: boolean; onRegistere
       onRegistered();
       toast('Huella registrada en este celular. Desde ahora cada marcación la pide.', 'ok');
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'No fue posible registrar la huella', 'bad');
+      toast(isRouteMissing(e) ? IDENTITY_NOT_ENABLED : e instanceof Error ? e.message : 'No fue posible registrar la huella', 'bad');
     } finally {
       setBusy(false);
     }

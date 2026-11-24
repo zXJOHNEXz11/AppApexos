@@ -20,3 +20,13 @@ describe('respuestas {ok:false} de la API', () => {
     expect(assertAccepted(null)).toBeNull();
   });
 });
+
+describe('API sin las rutas de huella y rostro', () => {
+  it('reconoce el 404 de Fastify «Route … not found» y no otros 404', async () => {
+    const { ApiException, isRouteMissing } = await import('../services/apiClient');
+    expect(isRouteMissing(new ApiException('Route POST:/api/v1/hr/self/webauthn/registration-challenge not found', 404))).toBe(true);
+    expect(isRouteMissing(new ApiException('Empleado no encontrado', 404, 'EMPLEADO_NO_ENCONTRADO'))).toBe(false);
+    expect(isRouteMissing(new ApiException('Route GET:/api/v1/hr/self/face-enrollment not found', 500))).toBe(false);
+    expect(isRouteMissing(new Error('Route GET:/x not found'))).toBe(false);
+  });
+});

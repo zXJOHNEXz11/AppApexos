@@ -31,7 +31,17 @@ export class ApiException extends Error {
   get isNetwork() {
     return this.statusCode === null;
   }
+  /** La API de este ambiente no tiene la ruta (404 de Fastify «Route GET:/… not found»). */
+  get isRouteMissing() {
+    return this.statusCode === 404 && /^Route [A-Z]+:\S+ not found$/.test(this.message);
+  }
 }
+
+export const isRouteMissing = (e: unknown) => e instanceof ApiException && e.isRouteMissing;
+
+/** Huella y rostro dependen de rutas nuevas de la API: este texto explica por qué no se puede marcar. */
+export const IDENTITY_NOT_ENABLED =
+  'La marcación con huella y rostro todavía no está activa en el servidor de tu empresa. Mientras tanto marca desde la app APEXOS y avisa a sistemas.';
 
 export const isNetworkError = (e: unknown) => e instanceof ApiException && e.isNetwork;
 
