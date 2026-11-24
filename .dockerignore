@@ -1,0 +1,8 @@
+node_modules
+dist
+dev-dist
+coverage
+public/models
+.git
+.claude
+*.local

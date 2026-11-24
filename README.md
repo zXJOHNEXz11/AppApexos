@@ -61,6 +61,43 @@ Para simular caída del servidor:
 | `VITE_ALLOW_DESKTOP` | `true` solo para desarrollo: permite abrir en computador. |
 | `VITE_LUNCH_SELFIE_REQUIRED` | Pedir selfie en almuerzo (compatibilidad con servidores anteriores). |
 
+## Publicar en Railway
+El repositorio trae `Dockerfile` + `railway.json`: Railway compila la PWA y nginx la sirve, reenviando
+`/api/*` a la API de APEXOS en el mismo dominio (sin CORS, sin cambios en la API). Railway pone el HTTPS.
+
+1. Railway → *New* → *Deploy from GitHub repo* → este repositorio (rama `main`).
+2. Servicio → *Variables*:
+
+   | Variable | QA | Producción |
+   |---|---|---|
+   | `APEXOS_MODE` | `qa` | `production` |
+   | `API_UPSTREAM` (opcional) | por defecto la de `.env.qa` | por defecto la de `.env.production` |
+
+   `APEXOS_MODE` se usa al **compilar**: API y Supabase quedan del mismo ambiente. Un servicio por ambiente.
+3. Servicio → *Settings* → *Networking* → *Generate Domain* (o un dominio propio).
+4. Abrir `https://<dominio>/health` → `ok`.
+
+**Antes de usar huella y rostro** en ese ambiente, la API debe tener desplegados los cambios de
+huella/rostro (monorepo APEXOS), las migraciones `hr_face_enrollments`, `hr_shared_devices` y
+`hr_webauthn_credentials`, y estas variables en el servicio de la API:
+`WEBAUTHN_ORIGINS=https://<dominio>` y `WEBAUTHN_RP_IDS=<dominio>`.
+Sin eso la app abre y se entra con correo y clave (órdenes, finanzas, transporte), pero **no deja
+marcar jornada**: marcar exige rostro y huella registrados, y esas rutas no existen en una API sin esos cambios.
+
+**Elegir el dominio definitivo desde el principio:** las huellas quedan atadas al dominio; si se
+cambia (p. ej. de `*.up.railway.app` a `movil.empresa.com`) cada persona debe registrar su huella otra vez.
+
+**Límite de intentos de ingreso:** con el proxy, la API ve a todos los celulares con la IP del servicio
+web; su límite de `/auth/login` (10 por minuto por IP) se comparte. Si al inicio de turno entra mucha
+gente a la vez, usar la llamada directa (camino B abajo): `VITE_API_BASE_URL` como variable del servicio
+y el dominio de la app en `ALLOWED_ORIGINS` de la API.
+
+Probar la imagen en el computador:
+```bash
+docker build -t apexos-web-movil:qa --build-arg APEXOS_MODE=qa .
+docker run --rm -p 8080:8080 apexos-web-movil:qa      # http://localhost:8080
+```
+
 ## Publicar en un dominio HTTPS
 La API de producción **solo acepta CORS de los dominios en `ALLOWED_ORIGINS`** (verificado en
 `apps/api/server.js` y con una petición de prueba). Hay dos caminos:
@@ -97,7 +134,8 @@ src/
   sync/           cola: requests, dao, sender, motor de sincronización, provider de React
   modules/        auth, orders, attendance, finance, transport, profile, sync
 scripts/mock-api.mjs   API simulada para pruebas locales
-deploy/                Netlify, Vercel, Nginx
+deploy/                Railway (nginx + proxy), Netlify, Vercel, Nginx
+Dockerfile, railway.json   imagen para Railway
 docs/                  inventario técnico y verificación
 ```
 

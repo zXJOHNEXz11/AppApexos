@@ -1,0 +1,62 @@
+# Plantilla: start.sh reemplaza ${PORT}, ${API_SCHEME}, ${API_HOSTPORT}, ${API_HOST}, ${RESOLVER}.
+server {
+  listen ${PORT};
+  listen [::]:${PORT};
+  server_name _;
+
+  root /usr/share/nginx/html;
+  index index.html;
+  client_max_body_size 12m;          # fotos en base64 (≤2 MB c/u) + marcación con selfie
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml application/manifest+json;
+
+  resolver ${RESOLVER} valid=60s ipv6=off;
+  resolver_timeout 5s;
+
+  # Railway revisa este camino antes de dar el servicio por arriba.
+  location = /health {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+  }
+
+  # Proxy inverso a la API de APEXOS (mismo origen → sin CORS).
+  location /api/ {
+    set $api_hostport "${API_HOSTPORT}";
+    proxy_pass ${API_SCHEME}://$api_hostport;
+    proxy_set_header Host $api_hostport;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_ssl_server_name on;
+    proxy_ssl_name ${API_HOST};
+    proxy_read_timeout 180s;         # subidas de fotos con mala señal
+    proxy_send_timeout 180s;
+  }
+
+  # Service Worker, manifiesto e index: siempre frescos para que la app se actualice.
+  location = /sw.js {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri =404;
+  }
+  location = /manifest.webmanifest {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri =404;
+  }
+  location /assets/ {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+  }
+  location /models/ {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=604800" always;
+    try_files $uri =404;
+  }
+  location / {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri /index.html;
+  }
+}
