@@ -361,7 +361,8 @@ const server = createServer(async (req, res) => {
     return send(res, 200, all);
   }
   if (path === '/hr/self/routes') {
-    if (u.user.id === 11) return send(res, 200, []);
+    // Respuesta lenta (3 s) para probar que no se marca mientras se consulta la malla.
+    if (u.user.id === 11) { await new Promise((r) => setTimeout(r, 3000)); return send(res, 200, []); }
     return send(res, 200, [{ id: 33, date: iso(today).slice(0, 10), start_time: '07:00', end_time: '17:00', vehicle_plate: 'XYZ987', tolerance_minutes: 15 }]);
   }
   if (path === '/hr/self/work-session') return send(res, 200, { active: false, activities: [], alerts: [] });

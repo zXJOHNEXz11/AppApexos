@@ -172,6 +172,11 @@ export function AttendancePage() {
 
   const begin = (type: PunchType) => {
     if (busy || !isAvailable(type, marked) || marked.has(type)) return;
+    // Mientras se consulta la malla no se marca: si no, se colaba una marcación sin malla.
+    if (routesQ.isLoading) {
+      toast('Consultando tu malla del día… intenta de nuevo en un momento.', 'warn');
+      return;
+    }
     if (noMalla) {
       alertNoMalla();
       return;
@@ -439,7 +444,7 @@ export function AttendancePage() {
                       disabled={!available || busy !== null}
                       onClick={() => begin(p.type)}
                       aria-label={`Marcar ${p.title}`}
-                      className="flex h-12 min-w-20 items-center justify-center rounded-[14px] bg-teal-solid px-3 text-sm font-bold text-white disabled:bg-surface-high disabled:text-faint"
+                      className={`flex h-12 min-w-20 items-center justify-center rounded-[14px] px-3 text-sm font-bold disabled:bg-surface-high disabled:text-faint ${noMalla ? 'bg-surface-high text-faint' : 'bg-teal-solid text-white'}`}
                     >
                       {busy === p.type ? <span className="spinner h-5 w-5" /> : 'Marcar'}
                     </button>
