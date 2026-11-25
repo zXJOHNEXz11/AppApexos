@@ -86,6 +86,8 @@ USERS['sinmalla@demo.local'] = {
   tenant: { id: 'demo', name: 'Empresa Demo', active_modules: ['m-26', 'm-17'] },
 };
 // Historial de dias anteriores (solo para la demostracion del resumen).
+// Dia local (como el servidor real, que usa el dia de Colombia), no el dia UTC.
+const dayIsoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayIso = (offset) => { const d = new Date(); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const pastPunches = [
   [1, 'entrada', '06:58', 0], [1, 'inicio_almuerzo', '12:02', 0], [1, 'fin_almuerzo', '13:00', 0], [1, 'salida', '18:10', 70],
@@ -354,7 +356,7 @@ const server = createServer(async (req, res) => {
 
   // ---- Jornada (contrato web: selfie en identity_photo al primer nivel)
   if (path === '/hr/self/attendance') {
-    const own = received.filter((r) => r.path === '/hr/self/time-punches' && r.ok && r.user_id === u.user.id).map((r) => ({ tipo: r.body.type, hora: new Date(r.body.punched_at).toTimeString().slice(0, 5), fecha: r.body.punched_at.slice(0, 10), minutos_extra: 0 }));
+    const own = received.filter((r) => r.path === '/hr/self/time-punches' && r.ok && r.user_id === u.user.id).map((r) => ({ tipo: r.body.type, hora: new Date(r.body.punched_at).toTimeString().slice(0, 5), fecha: dayIsoOf(new Date(r.body.punched_at)), minutos_extra: 0 }));
     // Igual que el servidor: sin rango es el dia de hoy; con fecha_inicio/fecha_fin, ese rango.
     const from = url.searchParams.get('fecha_inicio') || dayIso(0);
     const to = url.searchParams.get('fecha_fin') || dayIso(0);

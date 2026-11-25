@@ -20,19 +20,13 @@ import { OutboxRequests } from '../../sync/outboxRequests';
 import { useSync } from '../../sync/SyncProvider';
 import { useUser } from '../auth/AuthProvider';
 import { PunchHistory } from './PunchHistory';
+import { mergeMarks, type Mark } from './marks';
 import { IDENTITY_NOT_ENABLED, isRouteMissing } from '../../services/apiClient';
 import {
   EXTENSION_REASONS, fetchActivityTypes, fetchRoutes, fetchTodayPunches, fetchWorkSession, isAvailable, LATE_REASONS,
   MILEAGE_RE, minuteOfDay, needsSelfie, PUNCHES, type PunchType, type WorkActivity,
 } from './attendanceApi';
 
-interface Mark {
-  type: PunchType;
-  at: Date;
-  synced: boolean;
-  failed: boolean;
-  gpsQuality: string;
-}
 
 const GPS_LABEL: Record<string, string> = {
   gps_confirmado: 'GPS confirmado',
@@ -93,27 +87,15 @@ export function AttendancePage() {
   const identityMissing = isRouteMissing(faceQ.error) || isRouteMissing(credsQ.error);
 
   const today = todayIso();
-  const marks = useMemo(() => {
-    const map = new Map<PunchType, Mark>();
-    for (const p of punchesQ.data?.value ?? []) {
-      if (p.date && p.date !== today) continue;
-      const [h, m] = p.time.split(':').map(Number);
-      const at = new Date();
-      at.setHours(h || 0, m || 0, 0, 0);
-      map.set(p.type, { type: p.type, at, synced: true, failed: false, gpsQuality: '' });
-    }
-    // Las de la cola (aún no confirmadas) se superponen.
-    for (const e of entries) {
-      if (e.kind !== 'marcacion' || !e.payload) continue;
-      const at = new Date(String(e.payload.punched_at));
-      if (todayIso(at) !== today) continue;
-      const type = e.payload.type as PunchType;
-      const meta = (e.payload.metadata ?? {}) as Record<string, unknown>;
-      if (e.status === 'enviada' && map.has(type)) continue;
-      map.set(type, { type, at, synced: e.status === 'enviada', failed: e.status === 'fallida', gpsQuality: String(meta.gps_quality ?? '') });
-    }
-    return map;
-  }, [punchesQ.data, entries, today]);
+  const sentCount = entries.filter((e) => e.kind === 'marcacion' && e.status === 'enviada').length;
+  useEffect(() => {
+    if (sentCount > 0) void punchesQ.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sentCount]);
+  const marks = useMemo(
+    () => mergeMarks(punchesQ.data?.value ?? [], entries, today, punchesQ.data && !punchesQ.data.fromCache ? punchesQ.dataUpdatedAt : 0),
+    [punchesQ.data, punchesQ.dataUpdatedAt, entries, today],
+  );
 
   const marked = new Set(marks.keys());
   const route = routesQ.data?.value[0] ?? null;
