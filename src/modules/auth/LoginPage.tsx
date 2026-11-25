@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { GradientTile, PrimaryButton, Spinner } from '../../components/ui';
 import { platformAuthenticatorAvailable, quickLoginUsers, type QuickLoginUser } from '../../services/webauthn';
 import { useAuth } from './AuthProvider';
+import { useFaceLogin } from './FaceLoginSheet';
 
 /** Inicio de sesión (port de `login_screen.dart`). */
 export function LoginPage() {
@@ -16,6 +17,8 @@ export function LoginPage() {
   // Personas que registraron su huella en ESTE celular (en Marcar jornada).
   const [quick, setQuick] = useState<QuickLoginUser[]>([]);
   const [entering, setEntering] = useState<number | null>(null);
+  // Huella + rostro: la selfie confirma QUIÉN entra (dos personas pueden compartir celular).
+  const { verifyFace, sheet: faceSheet } = useFaceLogin();
 
   const loadQuick = useCallback(async () => {
     try {
@@ -31,7 +34,7 @@ export function LoginPage() {
 
   const enterWithFingerprint = async (who: QuickLoginUser) => {
     setEntering(who.userId);
-    const ok = await loginWithFingerprint(who);
+    const ok = await loginWithFingerprint(who, verifyFace);
     setEntering(null);
     if (!ok) void loadQuick(); // si la llave fue restablecida, su botón desaparece
   };
@@ -136,6 +139,7 @@ export function LoginPage() {
           Si no puedes entrar, pide tus credenciales al coordinador de operaciones.
         </p>
       </form>
+      {faceSheet}
     </div>
   );
 }

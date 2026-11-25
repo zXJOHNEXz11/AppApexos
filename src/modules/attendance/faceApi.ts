@@ -32,6 +32,14 @@ function parse(m: Record<string, unknown>): FaceEnrollment {
   };
 }
 
+/**
+ * Rostro registrado SIN caché: lo usa el ingreso con huella, antes de abrir la sesión
+ * (la caché es por usuario y aún no hay usuario de la caché).
+ */
+export async function fetchFaceEnrollmentFresh(): Promise<FaceEnrollment> {
+  return parse(asMap(await api.get(Api.hrFaceEnrollment)));
+}
+
 export const fetchFaceEnrollment = () =>
   cachedFetch('hr:face-enrollment', async () => parse(asMap(await api.get(Api.hrFaceEnrollment))), canUseCache);
 
