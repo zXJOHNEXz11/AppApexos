@@ -79,6 +79,26 @@ export async function fetchTodayPunches() {
   );
 }
 
+/**
+ * Historial propio entre dos fechas (`/hr/self/attendance` con `fecha_inicio`/`fecha_fin` y
+ * `flat=1`: liviano, sin fotos). Incluye los minutos extra que el servidor registró.
+ */
+export async function fetchPunchHistory(from: string, to: string) {
+  return cachedFetch(
+    `hr:history:${from}:${to}`,
+    async () =>
+      unwrapList(await api.get(Api.hrAttendance, { flat: '1', fecha_inicio: from, fecha_fin: to }))
+        .map((j) => ({
+          type: asString(j.tipo ?? j.tipo_marca ?? j.type) as PunchType,
+          date: asString(j.fecha ?? j.date).slice(0, 10),
+          time: asString(j.hora ?? j.time),
+          extraMinutes: asIntOrNull(j.minutos_extra ?? j.extra_minutes) ?? 0,
+        }))
+        .filter((p) => KNOWN.includes(p.type)),
+    canUseCache,
+  );
+}
+
 export async function fetchRoutes() {
   return cachedFetch(
     `hr:routes:${todayIso()}`,

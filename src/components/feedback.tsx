@@ -14,7 +14,8 @@ interface DialogOpts {
   title: string;
   message?: string;
   confirm?: string;
-  cancel?: string;
+  /** false = aviso con un solo botón (sin Cancelar). */
+  cancel?: string | false;
   danger?: boolean;
   /** Si se pasa, el diálogo pide un texto y lo exige no vacío. */
   input?: { label: string; placeholder?: string };
@@ -92,9 +93,11 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               </label>
             )}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="min-h-11 rounded-xl px-4 font-semibold text-muted" onClick={() => close(null)}>
-                {dialog.cancel ?? 'Cancelar'}
-              </button>
+              {dialog.cancel !== false && (
+                <button type="button" className="min-h-11 rounded-xl px-4 font-semibold text-muted" onClick={() => close(null)}>
+                  {dialog.cancel ?? 'Cancelar'}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!!dialog.input && text.trim() === ''}

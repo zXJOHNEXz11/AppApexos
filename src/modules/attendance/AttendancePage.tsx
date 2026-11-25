@@ -4,7 +4,7 @@ import { enrollFace, fetchFaceEnrollment, type FaceEnrollment } from './faceApi'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../storage/db';
 import {
-  fetchOwnCredentials, fingerprintRequired, platformAuthenticatorAvailable, registerFingerprint, signPunchWithFingerprint,
+  fetchOwnCredentials, fingerprintRequired, platformAuthenticatorAvailable, quickLoginUsers, registerFingerprint, signPunchWithFingerprint,
 } from '../../services/webauthn';
 import { useEffect, useMemo, useState } from 'react';
 import { BottomSheet, useFeedback } from '../../components/feedback';
@@ -19,6 +19,7 @@ import { storePhoto, type PreparedPhoto } from '../../services/media';
 import { OutboxRequests } from '../../sync/outboxRequests';
 import { useSync } from '../../sync/SyncProvider';
 import { useUser } from '../auth/AuthProvider';
+import { PunchHistory } from './PunchHistory';
 import { IDENTITY_NOT_ENABLED, isRouteMissing } from '../../services/apiClient';
 import {
   EXTENSION_REASONS, fetchActivityTypes, fetchRoutes, fetchTodayPunches, fetchWorkSession, isAvailable, LATE_REASONS,
@@ -50,7 +51,7 @@ const GPS_LABEL: Record<string, string> = {
 export function AttendancePage() {
   const user = useUser();
   const { entries, enqueue } = useSync();
-  const { toast } = useFeedback();
+  const { toast, confirm } = useFeedback();
   const [tab, setTab] = useState<'marcar' | 'historial'>('marcar');
   const [gps, setGps] = useState<GpsReading | null>(null);
   const [gpsBusy, setGpsBusy] = useState(false);
@@ -116,6 +117,8 @@ export function AttendancePage() {
 
   const marked = new Set(marks.keys());
   const route = routesQ.data?.value[0] ?? null;
+  // Sin malla para hoy (consulta hecha, en linea o desde la copia local): no se puede marcar.
+  const noMalla = !!routesQ.data && !route;
   const plate = route?.vehiclePlate?.trim() ?? '';
   const target: PunchType | null = !marked.has('entrada') ? 'entrada' : !marked.has('salida') ? 'salida' : null;
   const asksMileage = plate !== '' && target !== null;
@@ -149,8 +152,30 @@ export function AttendancePage() {
     toast(GPS_MESSAGES[r.outcome], r.outcome === 'fresh' ? 'ok' : r.outcome.startsWith('permission') || r.outcome === 'serviceDisabled' ? 'bad' : 'warn');
   };
 
+  const alertNoMalla = () =>
+    void confirm({
+      title: 'No tienes malla registrada',
+      message: 'No tienes malla (horario) asignada para hoy, así que no puedes marcar.\nComunícate con tu supervisor para que te la asigne.',
+      confirm: 'Entendido',
+      cancel: false,
+    });
+
+  // Al abrir la jornada sin malla, el aviso sale una sola vez.
+  const [noMallaShown, setNoMallaShown] = useState(false);
+  useEffect(() => {
+    if (noMalla && !noMallaShown && tab === 'marcar') {
+      setNoMallaShown(true);
+      alertNoMalla();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noMalla, noMallaShown, tab]);
+
   const begin = (type: PunchType) => {
     if (busy || !isAvailable(type, marked) || marked.has(type)) return;
+    if (noMalla) {
+      alertNoMalla();
+      return;
+    }
     if (identityMissing) {
       toast(IDENTITY_NOT_ENABLED, 'warn');
       return;
@@ -303,6 +328,7 @@ export function AttendancePage() {
 
       {tab === 'historial' ? (
         <div className="space-y-2 p-4">
+          <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Hoy</p>
           {marks.size === 0 ? (
             <div className="py-10 text-center">
               <Icon name="fingerprint" size={40} className="mx-auto text-faint" />
@@ -321,6 +347,9 @@ export function AttendancePage() {
               </Panel>
             ))
           )}
+          <div className="pt-3">
+            <PunchHistory />
+          </div>
         </div>
       ) : punchesQ.isLoading ? (
         <CenterSpinner />
@@ -355,10 +384,11 @@ export function AttendancePage() {
             {routesQ.isLoading ? (
               <p className="text-sm text-muted">Consultando tu horario...</p>
             ) : !route ? (
-              <>
-                <p className="font-bold">Sin horario asignado</p>
-                <p className="text-[13px] text-muted">No tienes malla para hoy. Si administración ya te la asignó, revisa que sea para la fecha de hoy.</p>
-              </>
+              <div className="mt-1">
+                <InfoBox tone="bad" icon="alert">
+                  <b>No tienes malla registrada para hoy.</b> No puedes marcar hasta que tu supervisor te asigne la malla. Si ya te la asignaron, revisa que sea para la fecha de hoy.
+                </InfoBox>
+              </div>
             ) : (
               <>
                 <p className="font-bold">{route.startTime ? `${route.startTime}${route.endTime ? ` - ${route.endTime}` : ''}` : 'Horario asignado'}</p>
@@ -368,6 +398,21 @@ export function AttendancePage() {
               </>
             )}
           </Panel>
+
+          {asksMileage && (
+            <Panel>
+              <p className="font-bold">{target === 'entrada' ? 'Kilometraje inicial del día' : 'Kilometraje recorrido del día'}</p>
+              <p className="mb-2 text-[13px] text-muted">
+                {target === 'entrada'
+                  ? `Obligatorio para abrir jornada con ${plate}. Lectura del odómetro al recibir el vehículo.`
+                  : `Obligatorio para cerrar jornada con ${plate}. Kilómetros recorridos, no odómetro final.`}
+              </p>
+              <div className="relative">
+                <input className="field pr-12" inputMode="decimal" placeholder={target === 'entrada' ? 'Ej: 128430.5' : 'Ej: 42.5'} value={mileage} onChange={(e) => setMileage(e.target.value)} />
+                <span className="absolute top-3.5 right-4 text-muted">km</span>
+              </div>
+            </Panel>
+          )}
 
           <div className="space-y-2.5">
             {PUNCHES.map((p) => {
@@ -408,20 +453,6 @@ export function AttendancePage() {
             {gpsBusy ? <span className="spinner h-5 w-5" /> : <Icon name="pin" size={18} />} {gpsLabel}
           </button>
 
-          {asksMileage && (
-            <Panel>
-              <p className="font-bold">{target === 'entrada' ? 'Kilometraje inicial del día' : 'Kilometraje recorrido del día'}</p>
-              <p className="mb-2 text-[13px] text-muted">
-                {target === 'entrada'
-                  ? `Obligatorio para abrir jornada con ${plate}. Lectura del odómetro al recibir el vehículo.`
-                  : `Obligatorio para cerrar jornada con ${plate}. Kilómetros recorridos, no odómetro final.`}
-              </p>
-              <div className="relative">
-                <input className="field pr-12" inputMode="decimal" placeholder={target === 'entrada' ? 'Ej: 128430.5' : 'Ej: 42.5'} value={mileage} onChange={(e) => setMileage(e.target.value)} />
-                <span className="absolute top-3.5 right-4 text-muted">km</span>
-              </div>
-            </Panel>
-          )}
 
           {asksSupport && (
             <Panel border="rgba(245,158,11,.5)">
@@ -660,6 +691,17 @@ function FingerprintPanel({ ready, onRegistered }: { ready: boolean; onRegistere
   useEffect(() => {
     void platformAuthenticatorAvailable().then(setAvailable);
   }, []);
+  // El lector del telefono acepta cualquier dedo inscrito en el: si otra persona ya registro
+  // su huella en este celular, se avisa (decision del dueno: solo huella, un celular por persona).
+  const [others, setOthers] = useState<string[]>([]);
+  useEffect(() => {
+    void quickLoginUsers().then((list) => setOthers(list.filter((q) => q.userId !== user.id).map((q) => q.name))).catch(() => setOthers([]));
+  }, [user.id, ready]);
+  const sharedWarning = others.length > 0 && (
+    <InfoBox tone="warn" icon="alert">
+      Este celular también tiene la huella de <b>{others.join(', ')}</b>. El lector acepta cualquier dedo guardado en el teléfono y no sabe de quién es: con un dedo inscrito se puede entrar con el usuario de otra persona. Lo recomendado es que cada persona use su propio celular, o que en este solo esté inscrito el dedo de una persona.
+    </InfoBox>
+  );
 
   const register = async () => {
     if (!navigator.onLine) {
@@ -680,18 +722,22 @@ function FingerprintPanel({ ready, onRegistered }: { ready: boolean; onRegistere
 
   if (ready) {
     return (
-      <Panel className="flex items-center gap-3">
-        <GradientTile icon="fingerprint" gradient="teal" size={44} />
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Mi huella</p>
-          <p className="font-bold text-teal">Huella registrada en este celular</p>
-          <p className="text-[12.5px] text-muted">Al marcar se pide primero tu huella y luego tu selfie.</p>
-        </div>
-      </Panel>
+      <>
+        <Panel className="flex items-center gap-3">
+          <GradientTile icon="fingerprint" gradient="teal" size={44} />
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Mi huella</p>
+            <p className="font-bold text-teal">Huella registrada en este celular</p>
+            <p className="text-[12.5px] text-muted">Al marcar se pide primero tu huella y luego tu selfie.</p>
+          </div>
+        </Panel>
+        {sharedWarning}
+      </>
     );
   }
   return (
     <Panel border="rgba(245,158,11,.5)">
+      {sharedWarning && <div className="mb-3">{sharedWarning}</div>}
       <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Mi huella</p>
       <p className="font-bold">Registra tu huella en este celular</p>
       <p className="mb-3 text-[13px] text-muted">

@@ -80,6 +80,19 @@ USERS['admin@demo.local'] = {
   user: { id: 5, name: 'Admin Demo', email: 'admin@demo.local', role: { name: 'Administrador' }, role_permissions: ['hr:write', 'hr:read', 'time_tracking:write'], role_metadata: {}, tenant_id: 'demo' },
   tenant: { id: 'demo', name: 'Empresa Demo', active_modules: ['m-26', 'm-17'] },
 };
+// Operario SIN malla para probar el aviso "No tienes malla registrada".
+USERS['sinmalla@demo.local'] = {
+  user: { id: 11, name: 'Operario Sin Malla', email: 'sinmalla@demo.local', role: { name: 'Tecnico' }, role_permissions: [{ module: 'hr', action: 'read' }, { module: 'hr', action: 'write' }], role_metadata: {}, tenant_id: 'demo' },
+  tenant: { id: 'demo', name: 'Empresa Demo', active_modules: ['m-26', 'm-17'] },
+};
+// Historial de dias anteriores (solo para la demostracion del resumen).
+const dayIso = (offset) => { const d = new Date(); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const pastPunches = [
+  [1, 'entrada', '06:58', 0], [1, 'inicio_almuerzo', '12:02', 0], [1, 'fin_almuerzo', '13:00', 0], [1, 'salida', '18:10', 70],
+  [2, 'entrada', '07:05', 0], [2, 'inicio_almuerzo', '12:00', 0], [2, 'fin_almuerzo', '12:45', 0], [2, 'salida', '17:02', 0],
+  [3, 'entrada', '07:00', 0],
+  [9, 'entrada', '07:10', 0], [9, 'salida', '17:40', 40],
+].map(([offset, tipo, hora, extra]) => ({ tipo, hora, fecha: dayIso(offset), minutos_extra: extra }));
 const tokens = new Map();
 
 const today = new Date();
@@ -340,10 +353,17 @@ const server = createServer(async (req, res) => {
 
   // ---- Jornada (contrato web: selfie en identity_photo al primer nivel)
   if (path === '/hr/self/attendance') {
-    const punches = received.filter((r) => r.path === '/hr/self/time-punches' && r.ok).map((r) => ({ tipo: r.body.type, hora: new Date(r.body.punched_at).toTimeString().slice(0, 5), fecha: r.body.punched_at.slice(0, 10) }));
-    return send(res, 200, punches);
+    const own = received.filter((r) => r.path === '/hr/self/time-punches' && r.ok && r.user_id === u.user.id).map((r) => ({ tipo: r.body.type, hora: new Date(r.body.punched_at).toTimeString().slice(0, 5), fecha: r.body.punched_at.slice(0, 10), minutos_extra: 0 }));
+    // Igual que el servidor: sin rango es el dia de hoy; con fecha_inicio/fecha_fin, ese rango.
+    const from = url.searchParams.get('fecha_inicio') || dayIso(0);
+    const to = url.searchParams.get('fecha_fin') || dayIso(0);
+    const all = [...(u.user.id === 7 ? pastPunches : []), ...own].filter((p) => p.fecha >= from && p.fecha <= to);
+    return send(res, 200, all);
   }
-  if (path === '/hr/self/routes') return send(res, 200, [{ id: 33, date: iso(today).slice(0, 10), start_time: '07:00', end_time: '17:00', vehicle_plate: 'XYZ987', tolerance_minutes: 15 }]);
+  if (path === '/hr/self/routes') {
+    if (u.user.id === 11) return send(res, 200, []);
+    return send(res, 200, [{ id: 33, date: iso(today).slice(0, 10), start_time: '07:00', end_time: '17:00', vehicle_plate: 'XYZ987', tolerance_minutes: 15 }]);
+  }
   if (path === '/hr/self/work-session') return send(res, 200, { active: false, activities: [], alerts: [] });
   if (path === '/hr/self/activity-types') return send(res, 200, [{ id: 1, code: 'entrega', name: 'Entrega a cliente' }, { id: 2, code: 'cargue', name: 'Cargue en bodega' }]);
   if (path === '/hr/self/time-punches' && req.method === 'POST') {
@@ -369,6 +389,7 @@ const server = createServer(async (req, res) => {
       }
     }
     last.ok = true;
+    last.user_id = u.user.id;
     const enrolledFace = faceEnrollments.get(u.user.id);
     if (enrolledFace && faceIdentity && body.identity_photo?.base64) {
       last.face_match = await faceIdentity.evaluateSelfie({ enrolledEmbedding: enrolledFace.embedding, selfieBuffer: dataUrlBytes(body.identity_photo.base64) });
