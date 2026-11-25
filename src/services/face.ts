@@ -24,6 +24,8 @@ export interface FaceCheck {
   liveness: number | null;
   threshold: number;
   model: string;
+  /** Por qué no se pudo comparar (solo en no_disponible). */
+  reason?: string;
 }
 
 interface DetectedFace {
@@ -148,8 +150,16 @@ export async function compareSelfie(enrolled: number[], selfie: Blob, threshold 
   try {
     faces = await analyzePhoto(selfie);
   } catch {
-    return { ...base, status: 'no_disponible', similarity: null, antispoof: null, liveness: null };
+    // Un segundo intento con el modelo recargado (p. ej. el WebGL del teléfono se reinició).
+    try {
+      humanPromise = null;
+      faces = await analyzePhoto(selfie);
+    } catch (e) {
+      return { ...base, status: 'no_disponible', similarity: null, antispoof: null, liveness: null, reason: e instanceof Error ? e.message : String(e) };
+    }
   }
+  // Una cara sin patrón legible no se puede comparar: se trata como "sin rostro".
+  faces = faces.filter((f) => f.embedding.length > 0);
   if (faces.length === 0) return { ...base, status: 'sin_rostro', similarity: null, antispoof: null, liveness: null };
   if (faces.length > 1) return { ...base, status: 'varios_rostros', similarity: null, antispoof: null, liveness: null };
   const f = faces[0];

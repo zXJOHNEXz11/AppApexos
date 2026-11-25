@@ -249,13 +249,26 @@ export function AttendancePage() {
     setBusy(type);
     // Rostro registrado: la selfie debe ser de la persona de esta sesión. Se compara aquí,
     // al instante y sin señal; si no coincide se pide repetir y NO se marca.
+    // Si la selfie no se puede verificar contra la foto registrada, NO se marca (antes se
+    // dejaba pasar y solo el servidor la senalaba).
     let faceCheck: FaceCheck | null = null;
-    if (face && enrollment?.enrolled && enrollment.embedding) {
+    if (face) {
+      if (!enrollment?.enrolled || !enrollment.embedding?.length) {
+        toast('No se encontró tu foto registrada para verificar la selfie. Revisa tu conexión y vuelve a abrir Mi jornada.', 'bad');
+        setBusy(null);
+        return;
+      }
       setCheckingFace(true);
       faceCheck = await compareSelfie(enrollment.embedding, face.blob, enrollment.threshold);
       setCheckingFace(false);
-      if (faceCheck.status !== 'coincide' && faceCheck.status !== 'no_disponible') {
-        toast(FACE_MESSAGES[faceCheck.status], 'bad');
+      if (faceCheck.status !== 'coincide') {
+        const pct = faceCheck.similarity !== null ? ` (coincidencia ${Math.round(faceCheck.similarity * 100)}%; mínimo ${Math.round(faceCheck.threshold * 100)}%)` : '';
+        toast(
+          faceCheck.status === 'no_disponible'
+            ? 'No se pudo verificar tu selfie con tu foto registrada en este celular. Cierra y vuelve a abrir la app e intenta de nuevo.'
+            : FACE_MESSAGES[faceCheck.status] + pct,
+          'bad',
+        );
         setSelfie(null);
         setBusy(null);
         return;
@@ -293,7 +306,7 @@ export function AttendancePage() {
       ]);
       setProof(null);
       const title = PUNCHES.find((p) => p.type === type)!.title;
-      const verified = faceCheck?.status === 'coincide' ? ' Rostro verificado con tu foto registrada ✓.' : '';
+      const verified = faceCheck?.status === 'coincide' ? ` Rostro verificado con tu foto registrada ✓ (coincidencia ${Math.round((faceCheck.similarity ?? 0) * 100)}%).` : '';
       toast(
         reading.outcome === 'fresh'
           ? `${title} registrada.${verified} Se envía al servidor en cuanto haya señal.`
