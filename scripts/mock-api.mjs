@@ -92,6 +92,7 @@ const pastPunches = [
   [2, 'entrada', '07:05', 0], [2, 'inicio_almuerzo', '12:00', 0], [2, 'fin_almuerzo', '12:45', 0], [2, 'salida', '17:02', 0],
   [3, 'entrada', '07:00', 0],
   [9, 'entrada', '07:10', 0], [9, 'salida', '17:40', 40],
+  [5, 'entrada', '14:00', 0], [5, 'inicio_almuerzo', '19:30', 0], [5, 'fin_almuerzo', '20:00', 0], [5, 'salida', '22:30', 0],
 ].map(([offset, tipo, hora, extra]) => ({ tipo, hora, fecha: dayIso(offset), minutos_extra: extra }));
 const tokens = new Map();
 

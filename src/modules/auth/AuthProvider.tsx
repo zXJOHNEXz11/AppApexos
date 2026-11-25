@@ -14,12 +14,8 @@ interface AuthState {
   error: string | null;
   busy: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  /**
-   * Entra con la huella registrada en este celular y luego exige la selfie: el lector del
-   * teléfono acepta cualquier dedo inscrito, así que el rostro prueba QUIÉN entra. La sesión
-   * solo se abre si `verifyFace` confirma el rostro del usuario de esa huella.
-   */
-  loginWithFingerprint: (who: QuickLoginUser, verifyFace: (user: AppUser) => Promise<boolean>) => Promise<boolean>;
+  /** Entra con la huella registrada en este celular (botón con el nombre en el login). */
+  loginWithFingerprint: (who: QuickLoginUser) => Promise<boolean>;
   /** Cierra sesión. Las operaciones pendientes NO se borran (ver abajo). */
   logout: () => Promise<void>;
   clearError: () => void;
@@ -86,23 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithFingerprint = useCallback(
-    (who: QuickLoginUser, verifyFace: (user: AppUser) => Promise<boolean>) =>
-      enter(async () => {
-        const u = await auth.loginWithFingerprint(who);
-        let verified = false;
-        try {
-          verified = await verifyFace(u);
-        } catch (e) {
-          await auth.serverLogout();
-          throw e;
-        }
-        if (!verified) {
-          // Sin rostro confirmado la sesión recién creada se cierra también en el servidor.
-          await auth.serverLogout();
-          throw new Error('Ingreso cancelado: falta confirmar tu rostro.');
-        }
-        return u;
-      }, 'No fue posible entrar con tu huella'),
+    (who: QuickLoginUser) => enter(() => auth.loginWithFingerprint(who), 'No fue posible entrar con tu huella'),
     [enter],
   );
 

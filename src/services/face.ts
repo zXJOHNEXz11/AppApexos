@@ -164,7 +164,7 @@ export async function compareSelfie(enrolled: number[], selfie: Blob, threshold 
 }
 
 export const FACE_MESSAGES: Record<Exclude<FaceStatus, 'coincide' | 'no_disponible'>, string> = {
-  no_coincide: 'El rostro no coincide con el registrado. Repite la selfie: debe ser la persona de esta sesión.',
+  no_coincide: 'La selfie no coincide con tu foto registrada. Repite la selfie: debe ser la persona de esta sesión.',
   sin_rostro: 'No se ve un rostro en la selfie. Tómala de frente y con buena luz.',
   varios_rostros: 'Hay más de una persona en la selfie. Debe aparecer solo quien marca.',
 };

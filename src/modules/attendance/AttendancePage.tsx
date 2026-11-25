@@ -293,10 +293,11 @@ export function AttendancePage() {
       ]);
       setProof(null);
       const title = PUNCHES.find((p) => p.type === type)!.title;
+      const verified = faceCheck?.status === 'coincide' ? ' Rostro verificado con tu foto registrada ✓.' : '';
       toast(
         reading.outcome === 'fresh'
-          ? `${title} registrada. Se envía al servidor en cuanto haya señal.`
-          : `${title} registrada sin GPS confirmado: quedará señalada para auditoría.`,
+          ? `${title} registrada.${verified} Se envía al servidor en cuanto haya señal.`
+          : `${title} registrada sin GPS confirmado: quedará señalada para auditoría.${verified}`,
         reading.outcome === 'fresh' ? 'ok' : 'warn',
       );
       if (isTarget) {
@@ -332,29 +333,8 @@ export function AttendancePage() {
       </div>
 
       {tab === 'historial' ? (
-        <div className="space-y-2 p-4">
-          <p className="text-[11px] font-bold tracking-wider text-muted uppercase">Hoy</p>
-          {marks.size === 0 ? (
-            <div className="py-10 text-center">
-              <Icon name="fingerprint" size={40} className="mx-auto text-faint" />
-              <p className="mt-2 font-semibold">Sin marcaciones hoy</p>
-              <p className="text-sm text-muted">Tus marcaciones aparecerán aquí.</p>
-            </div>
-          ) : (
-            [...marks.values()].sort((a, b) => b.at.getTime() - a.at.getTime()).map((m) => (
-              <Panel key={m.type} className="flex items-center gap-3">
-                <Icon name="fingerprint" className="text-teal" />
-                <div className="flex-1">
-                  <p className="font-semibold">{PUNCHES.find((p) => p.type === m.type)!.title}</p>
-                  <p className="text-xs text-muted">{markStatus(m)}</p>
-                </div>
-                <span className="text-sm text-muted">{formatTime(m.at)}</span>
-              </Panel>
-            ))
-          )}
-          <div className="pt-3">
-            <PunchHistory />
-          </div>
+        <div className="p-4">
+          <PunchHistory />
         </div>
       ) : punchesQ.isLoading ? (
         <CenterSpinner />
@@ -513,7 +493,7 @@ export function AttendancePage() {
         <PhotoButton purpose="selfie" selfie label="Tomar selfie" retakeLabel="Repetir selfie" value={selfie} onChange={setSelfie} />
         {enrollment?.enrolled && (
           <p className="mt-2 text-center text-xs text-muted">
-            {proof?.webauthn ? 'Huella confirmada ✓. Ahora tu selfie: ' : ''}se comparará con tu rostro registrado.
+            {proof?.webauthn ? 'Huella confirmada ✓. Ahora tu selfie: ' : 'Tu selfie '}se verifica con tu foto registrada antes de marcar.
           </p>
         )}
         <PrimaryButton className="mt-3" icon="check" disabled={!selfie} busy={checkingFace} onClick={() => selfieFor && void punch(selfieFor, selfie)}>Registrar marcación</PrimaryButton>

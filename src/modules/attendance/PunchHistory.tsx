@@ -13,7 +13,7 @@ const RANGES = [
 
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '--:--');
 
-/** Resumen de lo marcado en un rango: días, horas trabajadas, extras y jornadas sin cerrar. */
+/** Consolidado del rango (laboradas, diurnas, nocturnas) y detalle por día. */
 export function PunchHistory() {
   const [days, setDays] = useState<number>(7);
   const { from, to } = useMemo(() => {
@@ -52,10 +52,15 @@ export function PunchHistory() {
           {q.data?.fromCache && <InfoBox tone="warn" icon="cloudOff">Sin conexión: se muestra la última copia guardada.</InfoBox>}
           <div className="grid grid-cols-2 gap-2.5">
             <Stat label="Días trabajados" value={String(summary.daysWorked)} />
-            <Stat label="Marcaciones" value={String(summary.punches)} />
-            <Stat label="Horas trabajadas" value={formatDuration(summary.workedMinutes)} />
-            <Stat label="Horas extra" value={formatDuration(summary.extraMinutes)} tone={summary.extraMinutes > 0 ? 'text-warn' : undefined} hint={summary.daysWithExtra ? `en ${summary.daysWithExtra} día(s)` : undefined} />
+            <Stat label="Horas laboradas" value={formatDuration(summary.workedMinutes)} />
+            <Stat label="Horas diurnas" value={formatDuration(summary.dayMinutes)} hint="6:00 a.m. – 7:00 p.m." />
+            <Stat label="Horas nocturnas" value={formatDuration(summary.nightMinutes)} tone={summary.nightMinutes > 0 ? 'text-violet' : undefined} hint="7:00 p.m. – 6:00 a.m." />
           </div>
+          {summary.extraMinutes > 0 && (
+            <p className="text-[12.5px] text-muted">
+              Extras registradas por el servidor en el rango: <b className="text-warn">{formatDuration(summary.extraMinutes)}</b>
+            </p>
+          )}
           {summary.openDays > 0 && (
             <InfoBox tone="warn" icon="alert">
               {summary.openDays === 1 ? 'Tienes 1 jornada sin marcar el fin.' : `Tienes ${summary.openDays} jornadas sin marcar el fin.`}
@@ -67,24 +72,41 @@ export function PunchHistory() {
           ) : (
             <div className="space-y-2">
               {summary.days.map((d) => (
-                <Panel key={d.date} className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{formatDate(calendarDay(d.date))}</p>
-                    <p className="text-[12.5px] text-muted">
-                      {hhmm(d.entrada)} – {d.salida ? hhmm(d.salida) : 'sin fin'} · {d.punches} marcación(es)
-                      {d.lunchMinutes ? ` · almuerzo ${formatDuration(d.lunchMinutes)}` : ''}
-                    </p>
+                <Panel key={d.date}>
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{formatDate(calendarDay(d.date))}</p>
+                      <p className="text-[12.5px] text-muted">
+                        {hhmm(d.entrada)} – {d.salida ? hhmm(d.salida) : 'sin fin'}
+                        {d.lunchMinutes ? ` · almuerzo ${formatDuration(d.lunchMinutes)}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${d.open ? 'text-warn' : ''}`}>
+                        {d.workedMinutes !== null ? formatDuration(d.workedMinutes) : d.open ? 'Abierta' : '—'}
+                      </p>
+                      <p className="text-[11px] text-muted">laboradas</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold ${d.open ? 'text-warn' : ''}`}>{d.workedMinutes !== null ? formatDuration(d.workedMinutes) : d.open ? 'Abierta' : '—'}</p>
-                    {d.extraMinutes > 0 && <p className="text-[12px] font-semibold text-warn">+{formatDuration(d.extraMinutes)} extra</p>}
-                  </div>
+                  {d.workedMinutes !== null && (
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-[12.5px]">
+                      <span className="rounded-lg bg-surface-alt px-2.5 py-1.5">
+                        <span className="text-muted">Diurnas </span>
+                        <b>{formatDuration(d.dayMinutes ?? 0)}</b>
+                      </span>
+                      <span className="rounded-lg bg-surface-alt px-2.5 py-1.5">
+                        <span className="text-muted">Nocturnas </span>
+                        <b className={d.nightMinutes ? 'text-violet' : ''}>{formatDuration(d.nightMinutes ?? 0)}</b>
+                      </span>
+                    </div>
+                  )}
+                  {d.extraMinutes > 0 && <p className="mt-1.5 text-[12px] font-semibold text-warn">+{formatDuration(d.extraMinutes)} extra registradas</p>}
                 </Panel>
               ))}
             </div>
           )}
           <p className="text-[11.5px] leading-relaxed text-faint">
-            Las horas trabajadas se calculan con tus marcas (entrada a fin, menos el almuerzo). Las horas extra son las que registró el servidor; la liquidación oficial la hace talento humano.
+            Las horas se calculan con tus marcas (entrada a fin, menos el almuerzo). Nocturnas: de 7:00 p.m. a 6:00 a.m., la franja por defecto de la nómina. La liquidación oficial (recargos y extras) la hace talento humano.
           </p>
         </>
       )}
