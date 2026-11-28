@@ -15,6 +15,21 @@ import type { Human } from '@vladmandic/human';
 export const FACE_MODEL = 'human-3.3.6/faceres-1024';
 export const DEFAULT_MATCH_THRESHOLD = 0.55;
 
+/**
+ * Mínimo de coincidencia que usa el CELULAR para dejar marcar. Más tolerante que el del
+ * servidor (0.55) porque muchos marcan con cámaras rayadas o de baja calidad: medido con
+ * rostros reales, la misma persona con la foto borrosa da ~0.55 y otra persona 0.32–0.38.
+ * 0.45 deja pasar la foto borrosa y sigue bloqueando a otra persona. Se puede ajustar con
+ * VITE_FACE_MATCH_THRESHOLD sin cambiar código.
+ */
+export const APP_MATCH_THRESHOLD = (() => {
+  const v = Number(import.meta.env.VITE_FACE_MATCH_THRESHOLD);
+  return Number.isFinite(v) && v > 0 && v < 1 ? v : 0.45;
+})();
+
+/** El mínimo efectivo: el del servidor, pero nunca más estricto que el del celular. */
+export const effectiveThreshold = (serverThreshold: number) => Math.min(serverThreshold || DEFAULT_MATCH_THRESHOLD, APP_MATCH_THRESHOLD);
+
 export type FaceStatus = 'coincide' | 'no_coincide' | 'sin_rostro' | 'varios_rostros' | 'no_disponible';
 
 export interface FaceCheck {
@@ -63,7 +78,8 @@ function faceConfig(backend: string) {
     filter: { enabled: false },
     face: {
       enabled: true,
-      detector: { enabled: true, rotation: false, maxDetected: 3, minConfidence: 0.3 },
+      // 0.2 es el valor por defecto de la librería: detecta rostros en fotos borrosas o con poca luz.
+      detector: { enabled: true, rotation: false, maxDetected: 3, minConfidence: 0.2 },
       mesh: { enabled: true },
       iris: { enabled: false },
       description: { enabled: true },
@@ -174,7 +190,7 @@ export async function compareSelfie(enrolled: number[], selfie: Blob, threshold 
 }
 
 export const FACE_MESSAGES: Record<Exclude<FaceStatus, 'coincide' | 'no_disponible'>, string> = {
-  no_coincide: 'La selfie no coincide con tu foto registrada. Repite la selfie: debe ser la persona de esta sesión.',
-  sin_rostro: 'No se ve un rostro en la selfie. Tómala de frente y con buena luz.',
+  no_coincide: 'La selfie no coincide con tu foto registrada. Limpia la cámara, busca buena luz y repítela: debe ser la persona de esta sesión.',
+  sin_rostro: 'No se ve bien tu rostro en la selfie. Limpia la cámara, busca buena luz y tómala de frente, con la cara completa.',
   varios_rostros: 'Hay más de una persona en la selfie. Debe aparecer solo quien marca.',
 };

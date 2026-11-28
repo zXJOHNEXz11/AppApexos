@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { checkEnrollmentPhoto, compareSelfie, FACE_MESSAGES, preloadFaceModel, type FaceCheck } from '../../services/face';
+import { checkEnrollmentPhoto, compareSelfie, effectiveThreshold, FACE_MESSAGES, preloadFaceModel, type FaceCheck } from '../../services/face';
 import { enrollFace, fetchFaceEnrollment, type FaceEnrollment } from './faceApi';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../storage/db';
@@ -241,7 +241,7 @@ export function AttendancePage() {
         return;
       }
       setCheckingFace(true);
-      faceCheck = await compareSelfie(enrollment.embedding, face.blob, enrollment.threshold);
+      faceCheck = await compareSelfie(enrollment.embedding, face.blob, effectiveThreshold(enrollment.threshold));
       setCheckingFace(false);
       if (faceCheck.status !== 'coincide') {
         const pct = faceCheck.similarity !== null ? ` (coincidencia ${Math.round(faceCheck.similarity * 100)}%; mínimo ${Math.round(faceCheck.threshold * 100)}%)` : '';

@@ -24,3 +24,13 @@ describe('maestro de rostros (celular)', () => {
     expect(FACE_MESSAGES.varios_rostros).toMatch(/más de una persona/);
   });
 });
+
+describe('mínimo de coincidencia tolerante a cámaras de baja calidad', () => {
+  it('el celular usa 0.45 aunque el servidor mande 0.55, y nunca es más estricto que el servidor', async () => {
+    const { APP_MATCH_THRESHOLD, effectiveThreshold } = await import('./face');
+    expect(APP_MATCH_THRESHOLD).toBe(0.45);
+    expect(effectiveThreshold(0.55)).toBe(0.45);
+    expect(effectiveThreshold(0.4)).toBe(0.4);
+    expect(effectiveThreshold(0)).toBe(0.45);
+  });
+});

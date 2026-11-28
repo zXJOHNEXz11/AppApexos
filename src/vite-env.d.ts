@@ -11,4 +11,5 @@ interface ImportMetaEnv {
   readonly VITE_ALLOW_DESKTOP?: string;
   readonly VITE_LUNCH_SELFIE_REQUIRED?: string;
   readonly VITE_REQUIRE_FINGERPRINT?: string;
+  readonly VITE_FACE_MATCH_THRESHOLD?: string;
 }
