@@ -28,8 +28,10 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        // 'prompt' + registro propio (src/core/appUpdate.ts): al abrir se actualiza sola; con la
+        // app abierta se revisa cada 15 min y se ofrece "Actualizar" sin recargar a mitad de algo.
+        registerType: 'prompt',
+        injectRegister: false,
         includeAssets: ['icons/apple-touch-icon.png', 'favicon.svg'],
         manifest: {
           name: 'APEXOS Web Móvil',
@@ -61,7 +63,8 @@ export default defineConfig(({ mode }) => {
           runtimeCaching: [],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
+          // Sin skipWaiting: la versión nueva espera a que la app la aplique (al abrir, sola;
+          // con la app en uso, con el botón "Actualizar"). Ver src/core/appUpdate.ts.
         },
         devOptions: { enabled: false },
       }),

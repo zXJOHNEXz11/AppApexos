@@ -1,3 +1,4 @@
+import { UpdateBanner } from '../components/UpdateBanner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
@@ -56,6 +57,7 @@ export function App() {
           <BrowserRouter>
             <Root />
           </BrowserRouter>
+          <UpdateBanner />
         </AuthProvider>
       </FeedbackProvider>
     </QueryClientProvider>
